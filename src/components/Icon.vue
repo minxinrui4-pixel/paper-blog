@@ -1,4 +1,5 @@
 <script setup>
+import chatgptLogo from '../assets/chatgpt.svg'
 import {
   Home,
   PencilLine,
@@ -36,6 +37,14 @@ import {
   Feather,
   Send,
   ExternalLink,
+  Settings,
+  MessageCircle,
+  Palette,
+  UserRound,
+  Sparkles,
+  FolderUp,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-vue-next'
 defineProps({ name: String, size: { type: Number, default: 18 } })
 const icons = {
@@ -75,8 +84,31 @@ const icons = {
   Feather,
   Send,
   ExternalLink,
+  Settings,
+  MessageCircle,
+  Palette,
+  UserRound,
+  Sparkles,
+  FolderUp,
+  ChevronDown,
+  ChevronUp,
 }
 </script>
 <template>
-  <component :is="icons[name] || FileText" :size="size" :stroke-width="1.7" aria-hidden="true" />
+  <img
+    v-if="name === 'ChatGPT'"
+    :src="chatgptLogo"
+    :width="size"
+    :height="size"
+    class="brand-icon"
+    alt=""
+    aria-hidden="true"
+  />
+  <component
+    v-else
+    :is="icons[name] || FileText"
+    :size="size"
+    :stroke-width="1.7"
+    aria-hidden="true"
+  />
 </template>

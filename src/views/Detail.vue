@@ -7,7 +7,6 @@ import { assetUrl } from '../lib/assets'
 import { confirmAction } from '../lib/confirm'
 import ArticleBody from '../components/ArticleBody.vue'
 import AssetImage from '../components/AssetImage.vue'
-import Art from '../components/Art.vue'
 import Icon from '../components/Icon.vue'
 const route = useRoute()
 const router = useRouter()
@@ -53,11 +52,8 @@ async function download(a) {
       ><Icon name="ArrowLeft" :size="16" />返回所有文章</RouterLink
     >
     <article v-if="post" class="detail-card card">
-      <div class="detail-cover">
-        <AssetImage v-if="post.coverId" :id="post.coverId" :alt="post.title" /><Art
-          v-else
-          :kind="post.art"
-        />
+      <div v-if="post.coverId" class="detail-cover">
+        <AssetImage :id="post.coverId" :alt="post.title" />
       </div>
       <div class="detail-content">
         <div class="detail-top">
@@ -94,7 +90,7 @@ async function download(a) {
           <h2><Icon name="Paperclip" :size="19" />文章附件</h2>
           <button v-for="a in post.attachments" :key="a.id" @click="download(a)">
             <Icon name="FileText" :size="21" /><span
-              >{{ a.name }}<small>{{ fileSize(a.size) }}</small></span
+              >{{ a.path || a.name }}<small>{{ fileSize(a.size) }}</small></span
             ><Icon name="Download" :size="18" />
           </button>
         </section>

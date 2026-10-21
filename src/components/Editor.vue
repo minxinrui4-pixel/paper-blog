@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onBeforeUnmount, nextTick } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import { LocalImage } from '../lib/editor'
@@ -7,7 +7,7 @@ import { onBeforeRouteLeave } from 'vue-router'
 import { confirmAction } from '../lib/confirm'
 import Icon from './Icon.vue'
 import AssetImage from './AssetImage.vue'
-import { storeFile, assetUrl } from '../lib/assets'
+import { storeFileBatch, assetUrl } from '../lib/assets'
 import { clean, fileSize, assetIds } from '../lib/content'
 import {
   readDraft,
@@ -17,6 +17,7 @@ import {
   cleanup,
   retainAsset,
   releaseAsset,
+  categories,
 } from '../lib/store'
 const props = defineProps({ post: Object })
 const emit = defineEmits(['saved', 'cancel'])
@@ -24,7 +25,7 @@ const initial = props.post ||
   readDraft() || {
     title: '',
     html: '',
-    category: '生活随笔',
+    category: categories.value[0] || '未分类',
     tags: [],
     coverId: '',
     attachments: [],
@@ -43,6 +44,10 @@ const draftState = ref(
 )
 const images = ref(null)
 const files = ref(null)
+const folder = ref(null)
+const uploadProgress = ref('')
+const uploadResult = ref('')
+const directorySupported = 'webkitdirectory' in document.createElement('input')
 const retained = new Set()
 const editor = useEditor({
   content: html.value,
@@ -113,30 +118,44 @@ async function hydrate() {
 watch(editor, hydrate)
 const imageItems = computed(() => attachments.value.filter((a) => a.type.startsWith('image/')))
 async function upload(event, imageOnly) {
+  if (busy.value || !event.target.files?.length) return
   busy.value = true
   error.value = ''
+  uploadResult.value = ''
   try {
-    for (const file of event.target.files) {
-      if (
-        imageOnly &&
-        !['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'].includes(file.type)
-      )
-        throw new Error('请选择 PNG、JPG、WebP、GIF 或 AVIF 图片')
-      const asset = await storeFile(file)
-      retainAsset(asset.id)
-      retained.add(asset.id)
-      attachments.value.push(asset)
-      if (imageOnly) {
-        const url = await assetUrl(asset.id)
-        editor.value.chain().focus().setImage({ src: url, alt: file.name, assetId: asset.id }).run()
-        if (!coverId.value) coverId.value = asset.id
-      }
-      changed()
-    }
+    const result = await storeFileBatch(event.target.files, {
+      imageOnly,
+      onProgress: ({ done, total }) => {
+        uploadProgress.value = `正在导入 ${done} / ${total} 个文件`
+      },
+      onStored: async (asset, file) => {
+        retainAsset(asset.id)
+        retained.add(asset.id)
+        attachments.value.push(asset)
+        if (imageOnly) {
+          const url = await assetUrl(asset.id)
+          editor.value
+            .chain()
+            .focus()
+            .setImage({ src: url, alt: file.name, assetId: asset.id })
+            .run()
+          if (!coverId.value) coverId.value = asset.id
+        }
+        changed()
+      },
+    })
+    await nextTick()
+    uploadResult.value = `已导入 ${result.saved.length} 个文件${result.failures.length ? `，${result.failures.length} 个失败` : ''}`
+    if (result.failures.length)
+      error.value = result.failures
+        .slice(0, 3)
+        .map((f) => `${f.name}：${f.reason}`)
+        .join('；')
   } catch (e) {
     error.value = e.message || '文件保存失败，请检查存储空间'
   } finally {
     busy.value = false
+    uploadProgress.value = ''
     event.target.value = ''
   }
 }
@@ -167,7 +186,7 @@ async function submit() {
       }
       title.value = ''
       tags.value = ''
-      category.value = '生活随笔'
+      category.value = categories.value[0] || '未分类'
       coverId.value = ''
       attachments.value = []
       editor.value.commands.clearContent()
@@ -215,7 +234,7 @@ async function cancel() {
   }
 }
 function beforeUnload(event) {
-  if (props.post && dirty.value) {
+  if (busy.value || (props.post && dirty.value)) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -271,9 +290,9 @@ const tools = [
       >
         <Icon :name="tool.icon" :size="17" /></button
       ><span class="toolbar-divider"></span
-      ><button aria-label="插入图片" title="插入图片" @click="images.click()">
+      ><button aria-label="插入图片" title="插入图片" :disabled="busy" @click="images.click()">
         <Icon name="Image" :size="17" /></button
-      ><button aria-label="添加附件" title="添加附件" @click="files.click()">
+      ><button aria-label="添加附件" title="添加附件" :disabled="busy" @click="files.click()">
         <Icon name="Paperclip" :size="17" />
       </button>
     </div>
@@ -281,11 +300,9 @@ const tools = [
     <div class="editor-fields">
       <label
         >分类<select v-model="category">
-          <option>生活随笔</option>
-          <option>技术笔记</option>
-          <option>旅行记录</option>
-          <option>阅读摘记</option>
-          <option>未分类</option>
+          <option v-for="name in [...new Set([...categories, category])]" :key="name" :value="name">
+            {{ name }}
+          </option>
         </select></label
       ><label class="tag-field"
         >标签<input v-model="tags" placeholder="用逗号分隔，如：生活，日常" aria-label="文章标签"
@@ -299,6 +316,15 @@ const tools = [
       hidden
       @change="upload($event, true)"
     /><input ref="files" type="file" multiple hidden @change="upload($event, false)" />
+    <input
+      ref="folder"
+      type="file"
+      webkitdirectory
+      directory
+      multiple
+      hidden
+      @change="upload($event, false)"
+    />
     <div v-if="imageItems.length" class="image-previews">
       <div v-for="a in imageItems" :key="a.id" class="image-preview">
         <AssetImage :id="a.id" :alt="a.name" /><button
@@ -312,12 +338,15 @@ const tools = [
     <div class="attachment-editor" v-if="attachments.length">
       <div v-for="a in attachments" :key="a.id">
         <Icon name="Paperclip" :size="14" /><span
-          >{{ a.name }} <small>{{ fileSize(a.size) }}</small></span
-        ><button :aria-label="`移除 ${a.name}`" @click="remove(a)">
+          >{{ a.path || a.name }} <small>{{ fileSize(a.size) }}</small></span
+        ><button :disabled="busy" :aria-label="`移除 ${a.path || a.name}`" @click="remove(a)">
           <Icon name="X" :size="14" />
         </button>
       </div>
     </div>
+    <p v-if="uploadProgress || uploadResult" class="upload-feedback" role="status">
+      {{ uploadProgress || uploadResult }}
+    </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <div class="composer-footer">
       <div class="upload-actions">
@@ -325,6 +354,16 @@ const tools = [
           <Icon name="Image" :size="16" />图片</button
         ><button :disabled="busy" @click="files.click()">
           <Icon name="Paperclip" :size="16" />附件</button
+        ><button
+          :disabled="busy || !directorySupported"
+          :title="
+            directorySupported
+              ? '导入文件夹及子目录中的文件'
+              : '当前浏览器不支持文件夹选择，请使用附件多选'
+          "
+          @click="folder.click()"
+        >
+          <Icon name="FolderUp" :size="16" />文件夹</button
         ><span class="draft-state"><Icon name="Check" :size="13" />{{ draftState }}</span>
       </div>
       <div class="button-row">
@@ -336,6 +375,8 @@ const tools = [
         </button>
       </div>
     </div>
-    <p class="storage-note">仅保存在当前浏览器 · 单个文件最大 10 MB</p>
+    <p class="storage-note">
+      仅保存在当前浏览器 · 单个文件最大 10 MB · 文件夹保留相对路径，空文件夹不导入
+    </p>
   </section>
 </template>

@@ -4,13 +4,27 @@ import { useRoute, useRouter } from 'vue-router'
 import Editor from '../components/Editor.vue'
 import PostCard from '../components/PostCard.vue'
 import Icon from '../components/Icon.vue'
-import { posts } from '../lib/store'
+import SocialLinks from '../components/SocialLinks.vue'
+import { posts, categories as categoryNames } from '../lib/store'
+import { settings } from '../lib/settings'
 import { selectPosts } from '../lib/content'
 const route = useRoute()
 const router = useRouter()
 const search = ref('')
 const page = ref(1)
 const success = ref('')
+const composerOpen = ref(false)
+function explore() {
+  document.getElementById('articles')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+function writePost() {
+  composerOpen.value = true
+  requestAnimationFrame(() =>
+    document
+      .getElementById('write-article')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+  )
+}
 const desktopSearch = ref(null)
 const mobileSearch = ref(null)
 function searchShortcut(event) {
@@ -30,7 +44,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', searchShortcut))
 const category = computed(() => String(route.query.category || ''))
 const tag = computed(() => String(route.query.tag || ''))
 const categories = computed(() =>
-  [...new Set(posts.value.map((p) => p.category))].map((name) => ({
+  categoryNames.value.map((name) => ({
     name,
     count: posts.value.filter((p) => p.category === name).length,
   })),
@@ -55,6 +69,7 @@ function filter(key, value) {
 }
 function published(post) {
   success.value = `「${post.title}」已发布`
+  composerOpen.value = false
   search.value = ''
   page.value = 1
   router.replace('/')
@@ -69,12 +84,36 @@ function clearFilters() {
 }
 </script>
 <template>
+  <section class="home-hero" :class="{ 'whale-hero': settings.background === 'blowfish' }">
+    <div class="hero-copy">
+      <div class="eyebrow"><Icon name="Sparkles" :size="15" /> A SPACE FOR MY THOUGHTS</div>
+      <h1>把生活写成故事，<br /><span>把热爱留在这里。</span></h1>
+      <p>你好，我是 {{ settings.name }}。<br />在代码与日常之间，记录每一个值得分享的瞬间。</p>
+      <div class="hero-actions">
+        <a href="#articles" class="button primary" @click.prevent="explore"
+          >探索文章 <Icon name="ArrowUpRight" :size="17" /></a
+        ><button class="button secondary" @click="writePost">
+          <Icon name="PencilLine" :size="16" />写一篇文章
+        </button>
+      </div>
+      <SocialLinks />
+    </div>
+    <div v-if="settings.background !== 'blowfish'" class="hero-orbit" aria-hidden="true">
+      <span class="orbit-ring"></span><span class="orbit-ring orbit-ring-two"></span>
+      <div class="orbit-center"><Icon name="Feather" :size="62" /></div>
+      <span class="orbit-label">WRITE · CREATE · GROW</span><span class="orbit-star">✦</span>
+    </div>
+    <div class="hero-footnote">
+      <span class="status-dot"></span> 我的数字花园
+      <span>{{ posts.length }} 篇故事 · 持续生长中</span>
+    </div>
+  </section>
   <div class="content-layout">
     <div class="feed-column">
       <header class="page-heading">
         <div>
           <div class="eyebrow"><span></span> MY LITTLE CORNER OF THE INTERNET</div>
-          <h1>生活与思考，都在这里<span>。</span></h1>
+          <h2>生活与思考，都在这里<span>。</span></h2>
           <p>写下值得记住的瞬间，分享一路走来的收获。</p>
         </div>
         <span class="heading-flower">✳</span>
@@ -88,7 +127,21 @@ function clearFilters() {
           aria-label="搜索文章"
         />
       </div>
-      <Editor @saved="published" />
+      <section id="write-article" class="write-section">
+        <button
+          class="write-toggle"
+          :aria-expanded="composerOpen"
+          aria-controls="home-editor"
+          @click="composerOpen = !composerOpen"
+        >
+          <Icon name="PencilLine" :size="18" /><span>{{
+            composerOpen ? '收起写作区' : '此刻，有什么想分享？'
+          }}</span
+          ><span>{{ composerOpen ? '草稿会自动保存' : '写文章 / 继续草稿' }}</span
+          ><Icon :name="composerOpen ? 'ChevronLeft' : 'Plus'" :size="18" />
+        </button>
+        <div id="home-editor" v-show="composerOpen"><Editor @saved="published" /></div>
+      </section>
       <div v-if="success" class="success-message" role="status">
         <Icon name="Check" :size="16" />{{ success
         }}<button aria-label="关闭发布提示" @click="success = ''">
@@ -139,11 +192,7 @@ function clearFilters() {
                 : '在上方写下想法，点击发布就能看到文章。'
             }}
           </p>
-          <button
-            v-if="posts.length"
-            class="button secondary"
-            @click="clearFilters"
-          >
+          <button v-if="posts.length" class="button secondary" @click="clearFilters">
             清除筛选
           </button>
         </div>

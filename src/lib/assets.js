@@ -33,6 +33,7 @@ export async function storeFile(file) {
   const asset = {
     id: crypto.randomUUID(),
     name: file.name,
+    path: file.webkitRelativePath || '',
     type: file.type,
     size: file.size,
     blob: file,
@@ -40,6 +41,33 @@ export async function storeFile(file) {
   await transact('readwrite', (store) => store.put(asset))
   const { blob, ...meta } = asset
   return meta
+}
+export async function storeFileBatch(
+  files,
+  { imageOnly = false, onStored = () => {}, onProgress = () => {} } = {},
+) {
+  const selected = Array.from(files)
+  const saved = []
+  const failures = []
+  for (const [index, file] of selected.entries()) {
+    try {
+      if (
+        imageOnly &&
+        !['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'].includes(file.type)
+      )
+        throw new Error('请选择 PNG、JPG、WebP、GIF 或 AVIF 图片')
+      const asset = await storeFile(file)
+      await onStored(asset, file)
+      saved.push(asset)
+    } catch (e) {
+      failures.push({
+        name: file.webkitRelativePath || file.name,
+        reason: e.message || '文件保存失败',
+      })
+    }
+    onProgress({ done: index + 1, total: selected.length })
+  }
+  return { saved, failures }
 }
 export const readAsset = (id) => transact('readonly', (store) => store.get(id))
 export async function assetUrl(id) {
