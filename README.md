@@ -1,5 +1,17 @@
 # 纸间 · Vue 3 个人博客管理网站
 
+## 个性化设置（新增）
+
+- 在侧栏选择「个性化设置」，或点击作者头像，进入 `/settings`。
+- 作者资料支持修改名字、上传头像、修改简介和所在地。图片支持 JPG、PNG、WebP，自动裁剪头像并压缩。
+- 分类支持新增和改名，空分类也会保留。改名同步更新相关文章和首页草稿；导航、筛选及编辑器共用同一份分类列表。
+- 背景提供星海流光、晨间极光、素色纸间和自定义图片；设置页提供预览，点击「保存设置」后应用。首次使用默认深色，也可通过侧栏切换深浅模式。
+- GitHub 和 ChatGPT 图标在新窗口打开链接；默认分别为 `https://github.com/` 与 `https://chatgpt.com/`，可在设置页修改 HTTPS 地址。
+- 作者和背景设置保存在 `paper-blog-settings-v1`；分类保存在 `paper-blog-categories-v1`。原有文章和附件的存储方式不变。
+- 新增 `src/views/Settings.vue`、`src/lib/settings.js`、`src/components/SocialLinks.vue` 和 `src/appearance.css`。写作区可在首页展开，未发布内容仍自动保存为草稿。
+
+背景素材：`src/assets/blowfish-background.svg` 来自 [Blowfish 官网](https://blowfish.page/zh-cn/) 的[公开背景](https://blowfish.page/images/v3/site-background.svg)，已下载到项目本地，不依赖外部图片服务。页面为本项目 Vue 实现。
+
 一个中等难度的前端框架课程设计。参考 Stack 的侧栏与卡片布局，以“首页直接写文章、详情直接编辑”为核心流程，使用 Vue 3 重新实现。无需后端、账号、数据库服务器或文件管理页面。
 
 ## 启动与构建

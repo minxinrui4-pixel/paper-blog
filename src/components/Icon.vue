@@ -36,6 +36,11 @@ import {
   Feather,
   Send,
   ExternalLink,
+  Settings,
+  MessageCircle,
+  Palette,
+  UserRound,
+  Sparkles,
 } from 'lucide-vue-next'
 defineProps({ name: String, size: { type: Number, default: 18 } })
 const icons = {
@@ -75,6 +80,11 @@ const icons = {
   Feather,
   Send,
   ExternalLink,
+  Settings,
+  MessageCircle,
+  Palette,
+  UserRound,
+  Sparkles,
 }
 </script>
 <template>

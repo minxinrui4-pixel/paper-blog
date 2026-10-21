@@ -17,6 +17,7 @@ import {
   cleanup,
   retainAsset,
   releaseAsset,
+  categories,
 } from '../lib/store'
 const props = defineProps({ post: Object })
 const emit = defineEmits(['saved', 'cancel'])
@@ -24,7 +25,7 @@ const initial = props.post ||
   readDraft() || {
     title: '',
     html: '',
-    category: '生活随笔',
+    category: categories.value[0] || '未分类',
     tags: [],
     coverId: '',
     attachments: [],
@@ -167,7 +168,7 @@ async function submit() {
       }
       title.value = ''
       tags.value = ''
-      category.value = '生活随笔'
+      category.value = categories.value[0] || '未分类'
       coverId.value = ''
       attachments.value = []
       editor.value.commands.clearContent()
@@ -281,11 +282,9 @@ const tools = [
     <div class="editor-fields">
       <label
         >分类<select v-model="category">
-          <option>生活随笔</option>
-          <option>技术笔记</option>
-          <option>旅行记录</option>
-          <option>阅读摘记</option>
-          <option>未分类</option>
+          <option v-for="name in [...new Set([...categories, category])]" :key="name" :value="name">
+            {{ name }}
+          </option>
         </select></label
       ><label class="tag-field"
         >标签<input v-model="tags" placeholder="用逗号分隔，如：生活，日常" aria-label="文章标签"
